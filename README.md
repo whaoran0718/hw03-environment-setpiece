@@ -3,8 +3,8 @@
 ![](display.png)
 
 ## Demo
-[Demo on ShaderToy](https://www.shadertoy.com/view/wsjGWc)
-[Demo Page]()
+ - [Demo on ShaderToy](https://www.shadertoy.com/view/wsjGWc)
+ - [Demo Page](https://whaoran0718.github.io/hw03-environment-setpiece/)
 
 ## Techniques
 ### Pavilion SDF
