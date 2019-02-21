@@ -14,7 +14,7 @@ float MIN_MARCH_LEN = 1e-2;
 float MAX_MARCH_LEN = 1e2;
 int   MAX_MARCH_ITER = 64;
 
-vec3 lightVec = normalize(vec3(2, 0.7, 0.0));
+vec3 lightVec = normalize(vec3(-2, 0.7, 0.0));
 vec3 lightCol = vec3(1.0, 1.0, 1.15);
 vec3 skyLitCol = vec3(0.16, 0.20, 0.28) / 2.0;
 vec3 indLitCol = vec3(0.3, 0.28, 0.2) / 2.0;
@@ -255,33 +255,33 @@ float mapCeiling(vec3 pos, out vec3 uvflag) {
   vec3 po = pos;
   vec3 pCol;
   int flag = -1;
-  for (int i = 0; i < 6; i++) {
-    vec3 p = rotY(po, float(i) * 60.0);
-    vec3 p0 = rotX(p, -angle) + vec3(0.0, l, 0.0);
-    vec3 p1 = rotZ(p0 + vec3(0.0, -l, r), 180.0);
-    vec3 p2 = p1 - vec3(0.0, 0.0, r + 0.2);
-    float d2 = opExtrussion(p2, sdTriangleIsosceles(p2.xy, vec2(halfWidth, l * 2.0)), 0.2);
-    float dis = abs(cos(p2.x * 5.0)) * 0.1;
-    if (p2.z < 0.0) { d2 = d2 - dis; }
-    if (d > d2) { d = d2; flag = 1; }
 
-    float len = sqrt(halfWidth * halfWidth * 0.25 + l * l);
-    vec3 p3 = rotX(rotY(p, 30.0), -angle * 1.1) + vec3(0.0, len * 1.9, 0.0);
-    float d3 = sdRoundCone(p3, len * 1.9, 0.8 * r, r);
-    d3 = smin(d3, sdRoundCone(opCheapBendX(rotX(p3 + vec3(0.0, r, 0.0), -30.0), 0.5) + vec3(0.0, 2.0, 0.0), 2.0, 0.0, 0.8 * r), 15.0);
-    if (d > d3) { d = d3; flag = 2; }
-
-    vec3 p4 = rotY( po + vec3(0.0, 9.0, 0.0), 30.0 + float(i) * 60.0) + vec3(0.0, 0.0, 6.0);
-    float d4 = sdCylinder(p4, vec2(r0, l0));
-    if (d > d4) { d=d4; pCol=p4; flag=3; }
-  }
+  float a = degrees(atan(po.z, po.x));
+  vec3 p1 = rotY(po, floor((a+120.0)/60.0) * 60.0);
+  p1 = rotX(p1, -angle) + vec3(0.0, l, 0.0);
+  p1 = rotZ(p1 + vec3(0.0, -l, r), 180.0) - vec3(0.0, 0.0, r + 0.2);
+  float d1 = opExtrussion(p1, sdTriangleIsosceles(p1.xy, vec2(halfWidth, l * 2.0)), 0.2);
+  float dis = abs(cos(p1.x * 5.0)) * 0.1;
+  if (p1.z < 0.0) { d1 = d1 - dis; }
+  if (d > d1) { d = d1; flag = 1; }
+  
+  vec3 p2 = rotY(po, floor((a+90.0)/60.0) * 60.0);
+  float len = sqrt(halfWidth * halfWidth * 0.25 + l * l);
+  vec3 p3 = rotX(rotY(p2, 30.0), -angle * 1.1) + vec3(0.0, len * 1.9, 0.0);
+  float d3 = sdRoundCone(p3, len * 1.9, 0.8 * r, r);
+  d3 = smin(d3, sdRoundCone(opCheapBendX(rotX(p3 + vec3(0.0, r, 0.0), -30.0), 0.5) + vec3(0.0, 2.0, 0.0), 2.0, 0.0, 0.8 * r), 15.0);
+  if (d > d3) { d = d3; flag = 2; }
+  
+  vec3 p4 = rotY(p2 + vec3(0.0, 9.0, 0.0), 30.0) + vec3(0.0, 0.0, 6.0);
+  float d4 = sdCylinder(p4, vec2(r0, l0));
+  if (d > d4) { d=d4; flag=3; }
 
   switch(flag) {
   case -1: break;
   case 0: break;
   case 1: uvflag = vec3(pos.x, pos.y, 1.0); break;
   case 2: uvflag = vec3(pos.x, pos.y, 2.0); break;
-  case 3: uvflag = uvCylinder(pCol, vec2(r, l)) + vec3(0.0, 0.0, 3.0); break;
+  case 3: uvflag = uvCylinder(p4, vec2(r, l)) + vec3(0.0, 0.0, 3.0); break;
   }
   return d;
 }
@@ -336,14 +336,16 @@ float map(vec3 pos, bool lightVisible, out vec3 uvflag)
 // Normal Calculation
 // Reference from http://iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
 ////////////////////////////////////////////////////////
-vec3 calcNormal(vec3 pos, out vec3 uvflag)
-{
-    const float ep = 0.0001;
-    vec2 e = vec2(1.0,-1.0)*0.5773;
-    return normalize( e.xyy*map( pos + e.xyy*ep, false, uvflag) + 
-					            e.yyx*map( pos + e.yyx*ep, false, uvflag) + 
-					            e.yxy*map( pos + e.yxy*ep, false, uvflag) + 
-					            e.xxx*map( pos + e.xxx*ep, false, uvflag) );
+#define ZERO (min(u_Time,0.0)) 
+vec3 calcNormal(vec3 pos, vec3 uv) {
+    const float h = 0.0001;
+    vec3 n = vec3(0.0);
+    for( int i=int(ZERO); i<4; i++ )
+    {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        n += e*map(pos+e*h, false, uv);
+    }
+    return normalize(n);
 }
 
 // Ray Marching Funtion
@@ -359,7 +361,7 @@ bool rayMarch(in vec3 ori, in vec3 dir, out vec3 uvflag, out vec3 p, out float d
     }
     t += d * STEPSIZE;
   }
-  return d < MIN_MARCH_LEN * t;
+  return t < MAX_MARCH_LEN;
 }
 
 // Visual Effect
@@ -458,6 +460,7 @@ vec3 render(vec3 pos, vec3 uvflag, out vec3 norm) {
   assembleCol += lanternShadowTerm * clamp(lanternTerm * 200.0, 0.0, 1.0) * lanternCol;
 
   return assembleCol * color;
+
 }
 
 // Ray Casting Funtion
@@ -521,7 +524,7 @@ vec3 applyFog(vec3 pos, vec3 rgb, float distance )
 
 void main() {
   float speed = 0.01;
-  float r = 14.0 + 10.0 * smoothstep(-0.5, 0.5, -sin(speed * u_Time));
+  float r = 14.0 + 10.0 * smoothstep(-0.5, 0.5, sin(speed * u_Time));
   vec3 eye = vec3(r * sin(speed * u_Time), 4.8, r * cos(speed * u_Time));
   vec3 ref = vec3(0.0, 2.8, 0.0);
   vec3 forward = normalize(ref - eye);
